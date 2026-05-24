@@ -21,7 +21,7 @@ function AgregarEmpleado() {
       ...empleado,
       [e.target.name]: e.target.value,
     });
-    // Limpiar error del campo específico cuando el usuario empieza a escribir
+
     if (erroresValidacion[e.target.name]) {
       setErroresValidacion({
         ...erroresValidacion,
