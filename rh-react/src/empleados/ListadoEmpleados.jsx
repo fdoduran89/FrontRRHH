@@ -8,19 +8,37 @@ const urlBase = "/api/empleados/";
 function ListadoEmpleados() {
   const navigate = useNavigate();
   const [empleados, setEmpleados] = useState([]);
+  const [empleadosFiltrados, setEmpleadosFiltrados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [eliminando, setEliminando] = useState(false);
+  const [terminoBusqueda, setTerminoBusqueda] = useState("");
 
   useEffect(() => {
     cargarEmpleados();
   }, []);
+
+  // Efecto para filtrar empleados cuando cambia el término de búsqueda o la lista original
+  useEffect(() => {
+    if (terminoBusqueda.trim() === "") {
+      setEmpleadosFiltrados(empleados);
+    } else {
+      const termino = terminoBusqueda.toLowerCase().trim();
+      const filtrados = empleados.filter(
+        (empleado) =>
+          empleado.nombre.toLowerCase().includes(termino) ||
+          empleado.departamento.toLowerCase().includes(termino),
+      );
+      setEmpleadosFiltrados(filtrados);
+    }
+  }, [terminoBusqueda, empleados]);
 
   const cargarEmpleados = async () => {
     try {
       setCargando(true);
       const respuesta = await axios.get(urlBase);
       setEmpleados(respuesta.data);
+      setEmpleadosFiltrados(respuesta.data);
       setError(null);
     } catch (err) {
       setError("Error al cargar los empleados: " + err.message);
@@ -47,13 +65,18 @@ function ListadoEmpleados() {
       setEliminando(true);
       await axios.delete(`${urlBase}${idEmpleado}/`);
       alert(`✅ Empleado "${nombreEmpleado}" eliminado correctamente`);
-      await cargarEmpleados(); // Recargar la lista
+      await cargarEmpleados();
+      setTerminoBusqueda(""); // Limpiar búsqueda después de eliminar
     } catch (err) {
       console.error("Error al eliminar:", err);
       alert(`❌ Error al eliminar al empleado: ${err.message}`);
     } finally {
       setEliminando(false);
     }
+  };
+
+  const limpiarBusqueda = () => {
+    setTerminoBusqueda("");
   };
 
   if (cargando) {
@@ -79,86 +102,109 @@ function ListadoEmpleados() {
     );
   }
 
-  if (empleados.length === 0) {
-    return (
-      <div className="card shadow">
-        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h3 className="mb-0">Listado de Empleados</h3>
-          <Link to="/agregar" className="btn btn-light btn-sm">
-            ➕ Nuevo Empleado
-          </Link>
-        </div>
-        <div className="card-body text-center">
-          <p className="text-muted">No hay empleados registrados</p>
-          <Link to="/agregar" className="btn btn-primary">
-            Agregar el primer empleado
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="card shadow">
-      <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap">
         <h3 className="mb-0">Listado de Empleados</h3>
         <Link to="/agregar" className="btn btn-light btn-sm">
           ➕ Nuevo Empleado
         </Link>
       </div>
       <div className="card-body">
-        <div className="table-responsive">
-          <table className="table table-hover table-striped">
-            <thead className="table-dark">
-              <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th>Departamento</th>
-                <th>Sueldo</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {empleados.map((empleado) => (
-                <tr key={empleado.idEmpleado}>
-                  <td>{empleado.idEmpleado}</td>
-                  <td>{empleado.nombre}</td>
-                  <td>{empleado.departamento}</td>
-                  <td>
-                    <NumericFormat
-                      value={empleado.sueldo}
-                      displayType={"text"}
-                      thousandSeparator="."
-                      decimalSeparator=","
-                      prefix="$"
-                      renderText={(value) => <strong>{value}</strong>}
-                    />
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-warning btn-sm me-2"
-                      onClick={() => handleEditar(empleado.idEmpleado)}
-                      disabled={eliminando}
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() =>
-                        handleEliminar(empleado.idEmpleado, empleado.nombre)
-                      }
-                      disabled={eliminando}
-                    >
-                      🗑️ Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Barra de búsqueda */}
+        <div className="row mb-4">
+          <div className="col-md-6 col-lg-5">
+            <div className="input-group">
+              <span className="input-group-text bg-dark text-white">🔍</span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Buscar por nombre o departamento..."
+                value={terminoBusqueda}
+                onChange={(e) => setTerminoBusqueda(e.target.value)}
+              />
+              {terminoBusqueda && (
+                <button
+                  className="btn btn-outline-secondary"
+                  type="button"
+                  onClick={limpiarBusqueda}
+                >
+                  ✖️ Limpiar
+                </button>
+              )}
+            </div>
+            <div className="mt-2 text-muted small">
+              {terminoBusqueda ? (
+                <>
+                  Se encontraron <strong>{empleadosFiltrados.length}</strong> de{" "}
+                  {empleados.length} empleados
+                </>
+              ) : (
+                <>
+                  Total de empleados: <strong>{empleados.length}</strong>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="mt-3 text-muted small">
-          Total de empleados: <strong>{empleados.length}</strong>
+
+        {/* Tabla de resultados */}
+        <div className="table-responsive">
+          {empleadosFiltrados.length === 0 ? (
+            <div className="alert alert-info text-center">
+              No se encontraron empleados que coincidan con "
+              <strong>{terminoBusqueda}</strong>"
+            </div>
+          ) : (
+            <table className="table table-hover table-striped">
+              <thead className="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Nombre</th>
+                  <th>Departamento</th>
+                  <th>Sueldo</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {empleadosFiltrados.map((empleado) => (
+                  <tr key={empleado.idEmpleado}>
+                    <td>{empleado.idEmpleado}</td>
+                    <td>{empleado.nombre}</td>
+                    <td>{empleado.departamento}</td>
+                    <td>
+                      <NumericFormat
+                        value={empleado.sueldo}
+                        displayType={"text"}
+                        thousandSeparator="."
+                        decimalSeparator=","
+                        prefix="$"
+                        renderText={(value) => <strong>{value}</strong>}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-warning btn-sm me-2"
+                        onClick={() => handleEditar(empleado.idEmpleado)}
+                        disabled={eliminando}
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() =>
+                          handleEliminar(empleado.idEmpleado, empleado.nombre)
+                        }
+                        disabled={eliminando}
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

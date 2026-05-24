@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { NumericFormat } from "react-number-format";
 
-// 🔥 CORRECCIÓN: Slash final para Django
 const urlBase = "/api/empleados/";
 
 function AgregarEmpleado() {
@@ -14,6 +13,7 @@ function AgregarEmpleado() {
     sueldo: "",
   });
   const [error, setError] = useState(null);
+  const [erroresValidacion, setErroresValidacion] = useState({});
   const [enviando, setEnviando] = useState(false);
 
   const handleChange = (e) => {
@@ -21,23 +21,53 @@ function AgregarEmpleado() {
       ...empleado,
       [e.target.name]: e.target.value,
     });
+    // Limpiar error del campo específico cuando el usuario empieza a escribir
+    if (erroresValidacion[e.target.name]) {
+      setErroresValidacion({
+        ...erroresValidacion,
+        [e.target.name]: null,
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setEnviando(true);
     setError(null);
+    setErroresValidacion({});
+
+    // Preparar datos para enviar
+    const datosEnvio = {
+      nombre: empleado.nombre.trim(),
+      departamento: empleado.departamento,
+      sueldo: parseFloat(empleado.sueldo), // Asegurar que sea número
+    };
+
+    console.log("Enviando datos al backend:", datosEnvio);
 
     try {
-      await axios.post(urlBase, {
-        nombre: empleado.nombre,
-        departamento: empleado.departamento,
-        sueldo: parseFloat(empleado.sueldo),
-      });
+      const respuesta = await axios.post(urlBase, datosEnvio);
+      console.log("Respuesta del backend:", respuesta.data);
       navigate("/");
     } catch (err) {
-      setError("Error al guardar el empleado: " + err.message);
-      console.error(err);
+      console.error("Error completo:", err);
+
+      // Verificar si el backend envió detalles de validación
+      if (err.response && err.response.status === 400) {
+        if (err.response.data) {
+          // Capturar errores de validación específicos
+          setErroresValidacion(err.response.data);
+          setError("Por favor, corrige los errores en el formulario.");
+        } else {
+          setError(
+            "Error de validación en el servidor. Verifica los datos ingresados.",
+          );
+        }
+      } else if (err.response && err.response.status === 500) {
+        setError("Error interno del servidor. Contacta al administrador.");
+      } else {
+        setError("Error al guardar el empleado: " + err.message);
+      }
     } finally {
       setEnviando(false);
     }
@@ -56,18 +86,27 @@ function AgregarEmpleado() {
             <label className="form-label">Nombre completo:</label>
             <input
               type="text"
-              className="form-control"
+              className={`form-control ${erroresValidacion.nombre ? "is-invalid" : ""}`}
               name="nombre"
               value={empleado.nombre}
               onChange={handleChange}
               required
+              maxLength={100}
             />
+            {erroresValidacion.nombre && (
+              <div className="invalid-feedback">
+                {Array.isArray(erroresValidacion.nombre)
+                  ? erroresValidacion.nombre.join(", ")
+                  : erroresValidacion.nombre}
+              </div>
+            )}
+            <small className="text-muted">Máximo 100 caracteres</small>
           </div>
 
           <div className="mb-3">
             <label className="form-label">Departamento:</label>
             <select
-              className="form-select"
+              className={`form-select ${erroresValidacion.departamento ? "is-invalid" : ""}`}
               name="departamento"
               value={empleado.departamento}
               onChange={handleChange}
@@ -80,12 +119,19 @@ function AgregarEmpleado() {
               <option value="Ventas">Ventas</option>
               <option value="Operaciones">Operaciones</option>
             </select>
+            {erroresValidacion.departamento && (
+              <div className="invalid-feedback">
+                {Array.isArray(erroresValidacion.departamento)
+                  ? erroresValidacion.departamento.join(", ")
+                  : erroresValidacion.departamento}
+              </div>
+            )}
           </div>
 
           <div className="mb-3">
             <label className="form-label">Sueldo:</label>
             <NumericFormat
-              className="form-control"
+              className={`form-control ${erroresValidacion.sueldo ? "is-invalid" : ""}`}
               name="sueldo"
               value={empleado.sueldo}
               onValueChange={(values) => {
@@ -102,8 +148,15 @@ function AgregarEmpleado() {
               placeholder="$ 0"
               required
             />
+            {erroresValidacion.sueldo && (
+              <div className="invalid-feedback">
+                {Array.isArray(erroresValidacion.sueldo)
+                  ? erroresValidacion.sueldo.join(", ")
+                  : erroresValidacion.sueldo}
+              </div>
+            )}
             <small className="text-muted">
-              Formato: solo números, sin decimales
+              Solo números enteros, sin decimales
             </small>
           </div>
 
