@@ -21,8 +21,13 @@ Integración con Backend
 URL Base: http://127.0.0.1:8080/api/empleados/
 
 Método Endpoint Propósito
+
 GET /api/empleados/ Obtener todos
+
 GET /api/empleados/{id}/ Obtener uno
+
 POST /api/empleados/ Crear
+
 PUT /api/empleados/{id}/ Actualizar
+
 DELETE /api/empleados/{id}/ Eliminar
